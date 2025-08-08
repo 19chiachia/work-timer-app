@@ -8,3 +8,11 @@ body {
     font-size: 3em;
     margin: 20px 0;
 }
+
+#taskSummaryList {
+    list-style-type: none;  /* ・を消す */
+    padding-left: 0;        /* 左の余白もなくす */
+    margin: 0 auto;         /* 中央寄せしたい場合 */
+    display: inline-block;  /* 中央寄せの補助 */
+    text-align: left;       /* リスト内は左揃え */
+}
