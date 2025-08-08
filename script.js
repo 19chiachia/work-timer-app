@@ -28,21 +28,70 @@ function updateTaskSummaryUI() {
     const list = document.getElementById("taskSummaryList");
     list.innerHTML = "";
 
-    for (const task in summary) {
-        const li = document.createElement("li");
-        li.textContent = `${task}: ${formatSecondsToMMSS(summary[task])}`;
+    let totalSeconds = 0;
 
-        // クリックで入力欄にセットするイベント
-        li.style.cursor = "pointer"; // クリックできることを示す
-        li.addEventListener("click", () => {
+    for (const task in summary) {
+        totalSeconds += summary[task];
+
+        const li = document.createElement("li");
+
+        // タスク名と時間表示
+        const label = document.createElement("span");
+        label.textContent = `${task}: ${formatSecondsToMMSS(summary[task])} `;
+        label.style.cursor = "pointer";
+        label.addEventListener("click", () => {
             document.getElementById("taskName").value = task;
             currentTask = task;
             localStorage.setItem("taskName", task);
         });
 
+        // 秒数入力フォーム
+        const input = document.createElement("input");
+        input.type = "number";
+        input.min = "1";
+        input.placeholder = "秒";
+        input.style.width = "60px";
+        input.style.marginLeft = "8px";
+
+        // 減算ボタン
+        const minusBtn = document.createElement("button");
+        minusBtn.textContent = "減算";
+        minusBtn.style.marginLeft = "4px";
+        minusBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const secToSubtract = parseInt(input.value, 10);
+            if (!isNaN(secToSubtract) && secToSubtract > 0) {
+                summary[task] = Math.max(0, summary[task] - secToSubtract);
+                saveTaskSummary(summary);
+                updateTaskSummaryUI();
+            }
+        });
+
+        // 削除ボタン
+        const deleteBtn = document.createElement("button");
+        deleteBtn.textContent = "削除";
+        deleteBtn.style.marginLeft = "4px";
+        deleteBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            if (confirm(`「${task}」を削除しますか？`)) {
+                delete summary[task]; // オブジェクトから削除
+                saveTaskSummary(summary);
+                updateTaskSummaryUI();
+            }
+        });
+
+        li.appendChild(label);
+        li.appendChild(input);
+        li.appendChild(minusBtn);
+        li.appendChild(deleteBtn);
         list.appendChild(li);
     }
+
+    // 全体合計時間表示
+    document.getElementById("totalTime").textContent =
+        `全体合計: ${formatSecondsToMMSS(totalSeconds)}`;
 }
+
 
 // タイマー表示更新
 function updateTimer() {
@@ -51,36 +100,44 @@ function updateTimer() {
     document.getElementById("timer").textContent = `${min}:${sec}`;
 }
 
+// 前回の作業表示
+function updateLastTaskUI() {
+    const name = localStorage.getItem("lastTaskName");
+    const time = localStorage.getItem("lastTaskTime");
+    if (name && time !== null) {
+        document.getElementById("lastTask").textContent =
+            `前回の作業: ${name} (${formatSecondsToMMSS(parseInt(time, 10))})`;
+    } else {
+        document.getElementById("lastTask").textContent = "前回の作業: なし";
+    }
+}
+
 // ページ読み込み時
 document.addEventListener('DOMContentLoaded', () => {
-    // 作業内容復元
     const savedTask = localStorage.getItem("taskName");
     if (savedTask !== null) {
         document.getElementById("taskName").value = savedTask;
         currentTask = savedTask;
     }
 
-    // タイマー秒数復元はリセット（または任意で復元可能）
     seconds = 0;
     updateTimer();
-
     updateTaskSummaryUI();
+    updateLastTaskUI();
 });
 
-// 作業内容入力欄の変更を検知してcurrentTask更新
+// 作業内容入力欄の変更を検知
 document.getElementById("taskName").addEventListener("input", (e) => {
     currentTask = e.target.value;
     localStorage.setItem("taskName", currentTask);
 });
 
-
 // 開始ボタン
 document.getElementById("startBtn").addEventListener("click", () => {
     const taskInput = document.getElementById("taskName").value.trim();
-    // 作業内容が空欄の場合は開始させない
     if (taskInput === "") {
         alert("作業内容を入力してください");
-        return; // 処理中断
+        return;
     }
     if (!timerInterval) {
         if (isNaN(seconds) || seconds < 0) seconds = 0;
@@ -91,12 +148,11 @@ document.getElementById("startBtn").addEventListener("click", () => {
     }
 });
 
-//一時停止ボタン
+// 一時停止ボタン
 document.getElementById("pauseBtn").addEventListener("click", () => {
     if (timerInterval) {
         clearInterval(timerInterval);
         timerInterval = null;
-        // ここで合計時間には加算しない（何もしない）
     }
 });
 
@@ -109,8 +165,15 @@ document.getElementById("stopBtn").addEventListener("click", () => {
         const summary = loadTaskSummary();
         summary[currentTask] = (summary[currentTask] || 0) + seconds;
         saveTaskSummary(summary);
+
+        // 前回の作業を保存
+        localStorage.setItem("lastTaskName", currentTask);
+        localStorage.setItem("lastTaskTime", seconds);
+
         updateTaskSummaryUI();
+        updateLastTaskUI();
     }
+
     seconds = 0;
     updateTimer();
 });
